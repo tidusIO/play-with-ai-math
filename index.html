@@ -432,7 +432,7 @@
         resetGame();
       }
 
-      const checkAnswer = debounce((selectedAnswer) => {
+      function checkAnswer(selectedAnswer) {
         if (isProcessing) return;
         clearInterval(timerInterval);
 
@@ -463,7 +463,7 @@
         currentProblem = generateProblem();
         updateUI();
         if (gameMode === "hard") startTimer();
-      }, 100);
+      }
 
       function resetGame() {
         if (isProcessing) return;
