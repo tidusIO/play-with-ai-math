@@ -226,6 +226,7 @@
       let gameMode = "";
       let timerInterval;
       let isProcessing = false;
+      let timeouts = []; // Track all timeouts
       const monsters = ["🦖", "🦕", "👾", "👻", "🐲", "🐉", "🦔", "🐙"];
       const reactions = ["✨", "🎉", "🌟", "💫", "⭐", "🎈"];
 
@@ -235,20 +236,33 @@
         { symbol: "×", operation: (a, b) => a * b, priority: 2 },
       ];
 
+      function clearAllTimeouts() {
+        timeouts.forEach((timeout) => clearTimeout(timeout));
+        timeouts = [];
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+      }
+
       function debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
           const later = () => {
             clearTimeout(timeout);
+            const index = timeouts.indexOf(timeout);
+            if (index > -1) timeouts.splice(index, 1);
             func(...args);
           };
           clearTimeout(timeout);
           timeout = setTimeout(later, wait);
+          timeouts.push(timeout);
         };
       }
 
       function showModal(title, message) {
         if (isProcessing) return;
+        clearAllTimeouts();
         document.getElementById("modalTitle").textContent = title;
         document.getElementById("modalMessage").textContent = message;
         document.getElementById("gameModal").style.display = "flex";
@@ -270,7 +284,12 @@
         }
 
         document.body.appendChild(feedback);
-        setTimeout(() => feedback.remove(), 1000);
+        const timeout = setTimeout(() => {
+          feedback.remove();
+          const index = timeouts.indexOf(timeout);
+          if (index > -1) timeouts.splice(index, 1);
+        }, 1000);
+        timeouts.push(timeout);
       }, 100);
 
       function evaluateExpression(parts) {
@@ -405,6 +424,7 @@
 
       function startGame(mode) {
         if (isProcessing) return;
+        clearAllTimeouts();
         gameMode = mode;
         document.querySelector(".difficulty-select").style.display = "none";
         document.getElementById("timer").style.display =
@@ -447,6 +467,7 @@
 
       function resetGame() {
         if (isProcessing) return;
+        clearAllTimeouts();
         score = 0;
         lives = 3;
         document.getElementById("gameModal").style.display = "none";
@@ -454,6 +475,9 @@
         updateUI();
         if (gameMode === "hard") startTimer();
       }
+
+      // Clean up when leaving page
+      window.addEventListener("beforeunload", clearAllTimeouts);
 
       // Don't auto-start the game anymore
       document.querySelector(".difficulty-select").style.display = "flex";
