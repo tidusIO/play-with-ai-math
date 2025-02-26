@@ -56,6 +56,11 @@
         grid-template-columns: repeat(2, 1fr);
         gap: 15px;
         margin: 20px 0;
+        pointer-events: auto; /* Enable clicking by default */
+      }
+
+      .options.disabled {
+        pointer-events: none; /* Disable clicking when class added */
       }
 
       .option {
@@ -227,6 +232,8 @@
       let timerInterval;
       let isProcessing = false;
       let timeouts = []; // Track all timeouts
+      let lastAnswerTime = 0; // Track last answer time
+      const ANSWER_COOLDOWN = 1000; // 1 second cooldown between answers
       const monsters = ["🦖", "🦕", "👾", "👻", "🐲", "🐉", "🦔", "🐙"];
       const reactions = ["✨", "🎉", "🌟", "💫", "⭐", "🎈"];
 
@@ -433,8 +440,16 @@
       }
 
       function checkAnswer(selectedAnswer) {
+        const now = Date.now();
+        if (now - lastAnswerTime < ANSWER_COOLDOWN) return; // Prevent rapid clicking
+        lastAnswerTime = now;
+
         if (isProcessing) return;
         clearInterval(timerInterval);
+
+        // Disable options while processing
+        const optionsContainer = document.getElementById("options");
+        optionsContainer.classList.add("disabled");
 
         if (selectedAnswer === currentProblem.answer) {
           score++;
@@ -460,9 +475,13 @@
           }
         }
 
-        currentProblem = generateProblem();
-        updateUI();
-        if (gameMode === "hard") startTimer();
+        // Re-enable options after a delay
+        setTimeout(() => {
+          optionsContainer.classList.remove("disabled");
+          currentProblem = generateProblem();
+          updateUI();
+          if (gameMode === "hard") startTimer();
+        }, ANSWER_COOLDOWN);
       }
 
       function resetGame() {
@@ -470,6 +489,7 @@
         clearAllTimeouts();
         score = 0;
         lives = 3;
+        lastAnswerTime = 0;
         document.getElementById("gameModal").style.display = "none";
         currentProblem = generateProblem();
         updateUI();
