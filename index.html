@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Math Monster Academy</title>
+    <style>
+      body {
+        font-family: "Comic Sans MS", cursive;
+        margin: 0;
+        min-height: 100vh;
+        background: url("https://img.freepik.com/free-vector/hand-drawn-monster-pattern_23-2149421352.jpg");
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .game-container {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 2rem;
+        border-radius: 25px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        max-width: 600px;
+        border: 8px solid #ff6b6b;
+      }
+
+      .monster {
+        font-size: 80px;
+        margin: 10px;
+        animation: bounce 1s infinite;
+      }
+
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-20px);
+        }
+      }
+
+      .problem {
+        font-size: 32px;
+        margin: 20px 0;
+        color: #2d3436;
+        background: #ffe66d;
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: 0 4px 0 #ffc107;
+      }
+
+      .options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+      }
+
+      .option {
+        background: #4ecdc4;
+        border: none;
+        padding: 15px;
+        border-radius: 15px;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 0 #45b7af;
+        font-family: "Comic Sans MS", cursive;
+      }
+
+      .option:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 0 #45b7af;
+      }
+
+      .option:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #45b7af;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+        padding: 15px;
+        background: #ff6b6b;
+        border-radius: 15px;
+        color: white;
+        font-size: 20px;
+      }
+
+      .combo-meter {
+        height: 20px;
+        background: linear-gradient(90deg, #ff6b6b, #ffe66d);
+        border-radius: 10px;
+        margin-top: 15px;
+        transition: width 0.3s;
+      }
+
+      .feedback {
+        position: absolute;
+        font-size: 40px;
+        pointer-events: none;
+        animation: flyUp 1s forwards;
+        opacity: 0;
+      }
+
+      @keyframes flyUp {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-100px);
+          opacity: 0;
+        }
+      }
+
+      .monster-container {
+        position: relative;
+        height: 100px;
+      }
+
+      .monster-emotion {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transition: all 0.3s;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+      }
+
+      .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-container">
+      <div class="monster-container">
+        <div class="monster" id="monster">🦖</div>
+      </div>
+      <h2>Math Monster Academy</h2>
+      <div class="problem" id="problem"></div>
+      <div class="options" id="options"></div>
+      <div class="stats">
+        <div>Correct: <span id="score">0</span>/10 ✅</div>
+        <div>Lives: <span id="lives">3</span>❤️</div>
+      </div>
+      <div class="combo-meter" id="comboMeter"></div>
+    </div>
+
+    <div class="modal" id="gameModal">
+      <div class="modal-content">
+        <h2 id="modalTitle"></h2>
+        <p id="modalMessage"></p>
+        <button class="option" onclick="resetGame()">Play Again</button>
+      </div>
+    </div>
+
+    <script>
+      let score = 0;
+      let lives = 3;
+      let currentProblem = {};
+      const monsters = ["🦖", "🦕", "👾", "👻", "🐲", "🐉", "🦔", "🐙"];
+      const reactions = ["✨", "🎉", "🌟", "💫", "⭐", "🎈"];
+
+      const operations = [
+        { symbol: "+", operation: (a, b) => a + b },
+        { symbol: "-", operation: (a, b) => a - b },
+        { symbol: "×", operation: (a, b) => a * b },
+      ];
+
+      function showModal(title, message) {
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("modalMessage").textContent = message;
+        document.getElementById("gameModal").style.display = "flex";
+      }
+
+      function showFeedback(correct) {
+        const feedback = document.createElement("div");
+        feedback.className = "feedback";
+        feedback.style.position = "absolute";
+        feedback.style.left = `${Math.random() * 80 + 10}%`;
+        feedback.style.top = `${Math.random() * 50 + 25}%`;
+
+        if (correct) {
+          feedback.textContent =
+            reactions[Math.floor(Math.random() * reactions.length)];
+          new Audio(
+            "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"
+          )
+            .play()
+            .catch(() => {});
+        } else {
+          feedback.textContent = "❌";
+          new Audio(
+            "https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"
+          )
+            .play()
+            .catch(() => {});
+        }
+
+        document.body.appendChild(feedback);
+        setTimeout(() => feedback.remove(), 1000);
+      }
+
+      function generateProblem() {
+        let a, b, operation;
+
+        do {
+          operation = operations[Math.floor(Math.random() * operations.length)];
+          if (operation.symbol === "×") {
+            a = Math.floor(Math.random() * 10) + 1;
+            b = Math.floor(Math.random() * 10) + 1;
+          } else {
+            a = Math.floor(Math.random() * 20) + 1;
+            b = Math.floor(Math.random() * 20) + 1;
+            if (operation.symbol === "-" && b > a) {
+              [a, b] = [b, a];
+            }
+          }
+        } while (operation.operation(a, b) > 100);
+
+        const result = operation.operation(a, b);
+
+        return {
+          question: `${a} ${operation.symbol} ${b}`,
+          answer: result,
+          options: generateOptions(result),
+        };
+      }
+
+      function generateOptions(answer) {
+        const options = [answer];
+        while (options.length < 4) {
+          const offset = Math.floor(Math.random() * 5) + 1;
+          const option = answer + (Math.random() < 0.5 ? offset : -offset);
+          if (!options.includes(option) && option >= 0) {
+            options.push(option);
+          }
+        }
+        return options.sort(() => Math.random() - 0.5);
+      }
+
+      function updateUI() {
+        document.getElementById("problem").textContent =
+          currentProblem.question;
+        const optionsContainer = document.getElementById("options");
+        optionsContainer.innerHTML = "";
+
+        currentProblem.options.forEach((option) => {
+          const button = document.createElement("button");
+          button.className = "option";
+          button.textContent = option;
+          button.onclick = () => checkAnswer(option);
+          optionsContainer.appendChild(button);
+        });
+
+        document.getElementById("score").textContent = score;
+        document.getElementById("lives").textContent = lives;
+        document.getElementById("monster").textContent =
+          monsters[Math.floor(Math.random() * monsters.length)];
+      }
+
+      function checkAnswer(selectedAnswer) {
+        if (selectedAnswer === currentProblem.answer) {
+          score++;
+          showFeedback(true);
+
+          if (score === 10) {
+            showModal(
+              "Congratulations! 🎉",
+              "You won the game! You answered all 10 questions correctly!"
+            );
+            return;
+          }
+        } else {
+          lives--;
+          showFeedback(false);
+
+          if (lives === 0) {
+            showModal(
+              "Game Over 😢",
+              `You ran out of lives! You got ${score} questions correct.`
+            );
+            return;
+          }
+        }
+
+        currentProblem = generateProblem();
+        updateUI();
+      }
+
+      function resetGame() {
+        score = 0;
+        lives = 3;
+        document.getElementById("gameModal").style.display = "none";
+        currentProblem = generateProblem();
+        updateUI();
+      }
+
+      // Start the game
+      resetGame();
+    </script>
+  </body>
+</html>
