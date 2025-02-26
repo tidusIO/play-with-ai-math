@@ -150,10 +150,54 @@
         border-radius: 15px;
         text-align: center;
       }
+
+      .difficulty-select {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      .difficulty-btn {
+        background: #ff6b6b;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 15px;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 0 #ff5252;
+        font-family: "Comic Sans MS", cursive;
+      }
+
+      .difficulty-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 0 #ff5252;
+      }
+
+      .timer {
+        background: #ff6b6b;
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        font-size: 20px;
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div class="game-container">
+      <div class="difficulty-select">
+        <button class="difficulty-btn" onclick="startGame('easy')">
+          Easy Mode
+        </button>
+        <button class="difficulty-btn" onclick="startGame('hard')">
+          Hard Mode
+        </button>
+      </div>
+      <div class="timer" id="timer">Time: <span id="timeLeft">15</span>s</div>
       <div class="monster-container">
         <div class="monster" id="monster">🦖</div>
       </div>
@@ -179,6 +223,8 @@
       let score = 0;
       let lives = 3;
       let currentProblem = {};
+      let gameMode = "";
+      let timerInterval;
       const monsters = ["🦖", "🦕", "👾", "👻", "🐲", "🐉", "🦔", "🐙"];
       const reactions = ["✨", "🎉", "🌟", "💫", "⭐", "🎈"];
 
@@ -186,6 +232,7 @@
         { symbol: "+", operation: (a, b) => a + b },
         { symbol: "-", operation: (a, b) => a - b },
         { symbol: "×", operation: (a, b) => a * b },
+        { symbol: "÷", operation: (a, b) => a / b },
       ];
 
       function showModal(title, message) {
@@ -223,35 +270,92 @@
       }
 
       function generateProblem() {
-        let a, b, operation;
+        if (gameMode === "easy") {
+          // Easy mode: smaller numbers, only addition and subtraction
+          const operation = operations[Math.floor(Math.random() * 2)]; // Only + and -
+          const a = Math.floor(Math.random() * 10) + 1;
+          const b = Math.floor(Math.random() * 10) + 1;
 
-        do {
-          operation = operations[Math.floor(Math.random() * operations.length)];
-          if (operation.symbol === "×") {
-            a = Math.floor(Math.random() * 10) + 1;
-            b = Math.floor(Math.random() * 10) + 1;
-          } else {
-            a = Math.floor(Math.random() * 20) + 1;
-            b = Math.floor(Math.random() * 20) + 1;
-            if (operation.symbol === "-" && b > a) {
-              [a, b] = [b, a];
+          if (operation.symbol === "-" && b > a) {
+            [a, b] = [b, a];
+          }
+
+          const result = operation.operation(a, b);
+          return {
+            question: `${a} ${operation.symbol} ${b}`,
+            answer: result,
+            options: generateOptions(result),
+          };
+        } else {
+          // Hard mode: Complex calculations with 3-5 numbers
+          const numCount = Math.floor(Math.random() * 3) + 3; // 3 to 5 numbers
+          let numbers = [];
+          let operations = [];
+          let question = "";
+
+          // Generate numbers and operations
+          for (let i = 0; i < numCount; i++) {
+            if (i > 0) {
+              const op = ["×", "÷", "+", "-"][Math.floor(Math.random() * 4)];
+              operations.push(op);
+            }
+
+            let num;
+            if (i < numCount - 1) {
+              num = Math.floor(Math.random() * 12) + 1;
+            } else {
+              // Make sure last number creates whole number for division
+              const prevNum = numbers[numbers.length - 1];
+              num =
+                operations[operations.length - 1] === "÷"
+                  ? [1, 2, 3, 4, 6, prevNum][Math.floor(Math.random() * 6)]
+                  : Math.floor(Math.random() * 12) + 1;
+            }
+            numbers.push(num);
+          }
+
+          // Build question string and calculate result
+          question = numbers[0].toString();
+          let result = numbers[0];
+
+          for (let i = 1; i < numbers.length; i++) {
+            question += ` ${operations[i - 1]} ${numbers[i]}`;
+            switch (operations[i - 1]) {
+              case "+":
+                result += numbers[i];
+                break;
+              case "-":
+                result -= numbers[i];
+                break;
+              case "×":
+                result *= numbers[i];
+                break;
+              case "÷":
+                result /= numbers[i];
+                break;
             }
           }
-        } while (operation.operation(a, b) > 100);
 
-        const result = operation.operation(a, b);
-
-        return {
-          question: `${a} ${operation.symbol} ${b}`,
-          answer: result,
-          options: generateOptions(result),
-        };
+          return {
+            question: question,
+            answer: Math.round(result * 100) / 100, // Round to 2 decimal places
+            options: generateOptions(result),
+          };
+        }
       }
 
       function generateOptions(answer) {
         const options = [answer];
         while (options.length < 4) {
-          const offset = Math.floor(Math.random() * 5) + 1;
+          let offset;
+          if (gameMode === "hard") {
+            // Larger offsets for hard mode
+            offset = Math.floor(answer * (Math.random() * 0.5 + 0.1));
+            if (offset === 0) offset = Math.floor(Math.random() * 5) + 1;
+          } else {
+            offset = Math.floor(Math.random() * 5) + 1;
+          }
+
           const option = answer + (Math.random() < 0.5 ? offset : -offset);
           if (!options.includes(option) && option >= 0) {
             options.push(option);
@@ -280,8 +384,47 @@
           monsters[Math.floor(Math.random() * monsters.length)];
       }
 
+      function startTimer() {
+        let timeLeft = 15;
+        document.getElementById("timeLeft").textContent = timeLeft;
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          document.getElementById("timeLeft").textContent = timeLeft;
+
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            lives--;
+            showFeedback(false);
+
+            if (lives === 0) {
+              showModal(
+                "Game Over 😢",
+                `Time's up! You got ${score} questions correct.`
+              );
+              return;
+            }
+
+            currentProblem = generateProblem();
+            updateUI();
+            if (gameMode === "hard") startTimer();
+          }
+        }, 1000);
+      }
+
+      function startGame(mode) {
+        gameMode = mode;
+        document.querySelector(".difficulty-select").style.display = "none";
+        document.getElementById("timer").style.display =
+          gameMode === "hard" ? "block" : "none";
+        resetGame();
+      }
+
       function checkAnswer(selectedAnswer) {
-        if (selectedAnswer === currentProblem.answer) {
+        clearInterval(timerInterval);
+
+        if (Math.abs(selectedAnswer - currentProblem.answer) < 0.01) {
           score++;
           showFeedback(true);
 
@@ -307,6 +450,7 @@
 
         currentProblem = generateProblem();
         updateUI();
+        if (gameMode === "hard") startTimer();
       }
 
       function resetGame() {
@@ -315,10 +459,11 @@
         document.getElementById("gameModal").style.display = "none";
         currentProblem = generateProblem();
         updateUI();
+        if (gameMode === "hard") startTimer();
       }
 
-      // Start the game
-      resetGame();
+      // Don't auto-start the game anymore
+      document.querySelector(".difficulty-select").style.display = "flex";
     </script>
   </body>
 </html>
