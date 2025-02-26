@@ -56,11 +56,6 @@
         grid-template-columns: repeat(2, 1fr);
         gap: 15px;
         margin: 20px 0;
-        pointer-events: auto; /* Enable clicking by default */
-      }
-
-      .options.disabled {
-        pointer-events: none; /* Disable clicking when class added */
       }
 
       .option {
@@ -229,11 +224,6 @@
       let lives = 3;
       let currentProblem = {};
       let gameMode = "";
-      let timerInterval;
-      let isProcessing = false;
-      let timeouts = []; // Track all timeouts
-      let lastAnswerTime = 0; // Track last answer time
-      const ANSWER_COOLDOWN = 1000; // 1 second cooldown between answers
       const monsters = ["🦖", "🦕", "👾", "👻", "🐲", "🐉", "🦔", "🐙"];
       const reactions = ["✨", "🎉", "🌟", "💫", "⭐", "🎈"];
 
@@ -243,40 +233,13 @@
         { symbol: "×", operation: (a, b) => a * b, priority: 2 },
       ];
 
-      function clearAllTimeouts() {
-        timeouts.forEach((timeout) => clearTimeout(timeout));
-        timeouts = [];
-        if (timerInterval) {
-          clearInterval(timerInterval);
-          timerInterval = null;
-        }
-      }
-
-      function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-          const later = () => {
-            clearTimeout(timeout);
-            const index = timeouts.indexOf(timeout);
-            if (index > -1) timeouts.splice(index, 1);
-            func(...args);
-          };
-          clearTimeout(timeout);
-          timeout = setTimeout(later, wait);
-          timeouts.push(timeout);
-        };
-      }
-
       function showModal(title, message) {
-        if (isProcessing) return;
-        clearAllTimeouts();
         document.getElementById("modalTitle").textContent = title;
         document.getElementById("modalMessage").textContent = message;
         document.getElementById("gameModal").style.display = "flex";
       }
 
-      const showFeedback = debounce((correct) => {
-        if (isProcessing) return;
+      function showFeedback(correct) {
         const feedback = document.createElement("div");
         feedback.className = "feedback";
         feedback.style.position = "absolute";
@@ -291,13 +254,8 @@
         }
 
         document.body.appendChild(feedback);
-        const timeout = setTimeout(() => {
-          feedback.remove();
-          const index = timeouts.indexOf(timeout);
-          if (index > -1) timeouts.splice(index, 1);
-        }, 1000);
-        timeouts.push(timeout);
-      }, 100);
+        setTimeout(() => feedback.remove(), 1000);
+      }
 
       function evaluateExpression(parts) {
         const workingParts = [...parts];
@@ -323,8 +281,6 @@
       }
 
       function generateProblem() {
-        if (isProcessing) return null;
-
         if (gameMode === "easy") {
           const operation = operations[Math.floor(Math.random() * 2)];
           const a = Math.floor(Math.random() * 10) + 1;
@@ -373,84 +329,34 @@
         return Array.from(options).sort(() => Math.random() - 0.5);
       }
 
-      const updateUI = debounce(() => {
-        if (isProcessing) return;
-        isProcessing = true;
-        try {
-          document.getElementById("problem").textContent =
-            currentProblem.question;
-          const optionsContainer = document.getElementById("options");
-          optionsContainer.innerHTML = "";
+      function updateUI() {
+        document.getElementById("problem").textContent =
+          currentProblem.question;
+        const optionsContainer = document.getElementById("options");
+        optionsContainer.innerHTML = "";
 
-          currentProblem.options.forEach((option) => {
-            const button = document.createElement("button");
-            button.className = "option";
-            button.textContent = option;
-            button.onclick = () => checkAnswer(option);
-            optionsContainer.appendChild(button);
-          });
+        currentProblem.options.forEach((option) => {
+          const button = document.createElement("button");
+          button.className = "option";
+          button.textContent = option;
+          button.onclick = () => checkAnswer(option);
+          optionsContainer.appendChild(button);
+        });
 
-          document.getElementById("score").textContent = score;
-          document.getElementById("lives").textContent = lives;
-          document.getElementById("monster").textContent =
-            monsters[Math.floor(Math.random() * monsters.length)];
-        } finally {
-          isProcessing = false;
-        }
-      }, 100);
-
-      function startTimer() {
-        let timeLeft = 15;
-        document.getElementById("timeLeft").textContent = timeLeft;
-
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-          if (isProcessing) return;
-          timeLeft--;
-          document.getElementById("timeLeft").textContent = timeLeft;
-
-          if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            lives--;
-            showFeedback(false);
-
-            if (lives === 0) {
-              showModal(
-                "Game Over 😢",
-                `Time's up! You got ${score} questions correct.`
-              );
-              return;
-            }
-
-            currentProblem = generateProblem();
-            updateUI();
-            if (gameMode === "hard") startTimer();
-          }
-        }, 1000);
+        document.getElementById("score").textContent = score;
+        document.getElementById("lives").textContent = lives;
+        document.getElementById("monster").textContent =
+          monsters[Math.floor(Math.random() * monsters.length)];
       }
 
       function startGame(mode) {
-        if (isProcessing) return;
-        clearAllTimeouts();
         gameMode = mode;
         document.querySelector(".difficulty-select").style.display = "none";
-        document.getElementById("timer").style.display =
-          gameMode === "hard" ? "block" : "none";
+        document.getElementById("timer").style.display = "none";
         resetGame();
       }
 
       function checkAnswer(selectedAnswer) {
-        const now = Date.now();
-        if (now - lastAnswerTime < ANSWER_COOLDOWN) return; // Prevent rapid clicking
-        lastAnswerTime = now;
-
-        if (isProcessing) return;
-        clearInterval(timerInterval);
-
-        // Disable options while processing
-        const optionsContainer = document.getElementById("options");
-        optionsContainer.classList.add("disabled");
-
         if (selectedAnswer === currentProblem.answer) {
           score++;
           showFeedback(true);
@@ -475,31 +381,18 @@
           }
         }
 
-        // Re-enable options after a delay
-        setTimeout(() => {
-          optionsContainer.classList.remove("disabled");
-          currentProblem = generateProblem();
-          updateUI();
-          if (gameMode === "hard") startTimer();
-        }, ANSWER_COOLDOWN);
+        currentProblem = generateProblem();
+        updateUI();
       }
 
       function resetGame() {
-        if (isProcessing) return;
-        clearAllTimeouts();
         score = 0;
         lives = 3;
-        lastAnswerTime = 0;
         document.getElementById("gameModal").style.display = "none";
         currentProblem = generateProblem();
         updateUI();
-        if (gameMode === "hard") startTimer();
       }
 
-      // Clean up when leaving page
-      window.addEventListener("beforeunload", clearAllTimeouts);
-
-      // Don't auto-start the game anymore
       document.querySelector(".difficulty-select").style.display = "flex";
     </script>
   </body>
